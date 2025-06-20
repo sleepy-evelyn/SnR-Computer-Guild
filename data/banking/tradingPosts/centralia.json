@@ -2,6 +2,7 @@
   "tradeCycle": 1,
   "maxTradesPerCycle": 10,
   "announce": true,
+  "bank": "centralia",
   "trades": [
     {
         "item": "minecraft:copper_ingot",
