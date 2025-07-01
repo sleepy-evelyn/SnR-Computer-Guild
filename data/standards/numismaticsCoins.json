@@ -1,0 +1,38 @@
+{
+  "spur": {
+    "itemId": "numismatics:spur",
+    "spurValue": 1,
+    "letter1Code": "S",
+    "letter3Code": "Spu"
+  },
+  "bevel": {
+    "itemId": "numismatics:bevel",
+    "spurValue": 8,
+    "letter1Code": "B",
+    "letter3Code": "Bev"
+  },
+  "sprocket": {
+    "itemId": "numismatics:sprocket",
+    "spurValue": 16,
+    "letter1Code": "K",
+    "letter3Code": "Spk"
+  },
+  "cog": {
+    "itemId": "numismatics:cog",
+    "spurValue": 64,
+    "letter1Code": "C",
+    "letter3Code": "Cog"
+  },
+  "crown": {
+    "itemId": "numismatics:crown",
+    "spurValue": 512,
+    "letter1Code": "R",
+    "letter3Code": "Cro"
+  },
+  "sun": {
+    "itemId": "numismatics:sun",
+    "spurValue": 4096,
+    "letter1Code": "U",
+    "letter3Code": "Sun"
+  }
+}
