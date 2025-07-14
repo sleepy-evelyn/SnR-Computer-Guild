@@ -1,9 +1,8 @@
 {
     "centralia": {
-        "name": "Centralia Bank",
         "blazeBanker": [2582, 74, 2310],
-        "colour": "purple",
         "enabled": true,
-        "maxTier": 3
+        "name": "Centralia Bank",
+        "colour": "purple"
     }
 }
