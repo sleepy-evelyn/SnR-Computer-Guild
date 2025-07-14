@@ -1,7 +1,6 @@
 {
-  "tradeCycle": 1,
-  "maxTradesPerCycle": 10,
-  "announce": true,
+  "tradeCycle": 3,
+  "maxTradesPerCycle": 1000,
   "bank": "centralia",
   "trades": [
     {
@@ -9,6 +8,7 @@
         "name": "Copper Ingot",
         "amount": 12,
         "value": 8,
+        "limit": 100,
         "variation": 3,
         "chance": 0.1
     },
@@ -16,25 +16,7 @@
         "item": "minecraft:iron_ingot",
         "name": "Iron Ingot",
         "amount": 1,
-        "value": 12,
-        "variation": 12,
-        "chance": 0.15
-    },
-    {
-        "item": "minecraft:gold_ingot",
-        "name": "Gold Ingot",
-        "amount": 2,
-        "value": 32,
-        "variation": 4,
-        "chance": 0.5
-    },
-    {
-        "item": "create:zinc_ingot",
-        "name": "Zinc Ingot",
-        "amount": 64,
-        "value": 12,
-        "variation": 10,
-        "chance": 0.25
+        "value": 12
     }
   ]
 }
