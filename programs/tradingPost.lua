@@ -1,17 +1,43 @@
+-- TODO List
+-- # Add Checksum verification for file downloads
+
 LOOP_DELAY_SECS = 4
 MAX_LOOPS = 1000
 PLAYER_DETECTOR_RANGE = 6
 CHECK_TRADE_CYCLE_FREQ = 4
 
+-- Fallback options
+FALLBACK_CHANCE = 0.1
+FALLBACK_BG_COLOUR = "yellow"
+
+-- Text colours to compliment custom background colour.
+-- Black is excluded. Using Blit codes.
+COMPLIMENTARY_TEXT_COLOURS = {
+    black = "yellow",
+    blue = "white",
+    gray = "yellow",
+    lightGrey = "yellow",
+    purple = "yellow",
+    red = "yellow",
+    green = "white"
+}
+
+BANKS_FILE = "https://raw.githubusercontent.com/sleepy-evelyn/SnR-Computer-Guild/refs/heads/main/data/banking/banks.json?t=" .. os.epoch("utc")
+
 _monitor = peripheral.find("monitor")
 _entityDetector = peripheral.find("entity_detector")
 _inventory = peripheral.find("inventory")
 _modem = peripheral.find("modem")
-
 _numTradeOffers = 3
 
 function getEpochMinutes()
     return math.ceil(os.epoch("utc") / 60000)
+end
+
+function printWarning(message)
+    term.setTextColour(colours.orange)
+    print(message)
+    term.setTextColour(colours.white)
 end
 
 function deepCopy(original)
@@ -31,7 +57,7 @@ function readFileFromURL(url)
     local fileContent = nil
 
     if not response then
-        print("HTTP request failed with status code: " .. statusCode)
+        error("HTTP request failed with status code: " .. statusCode)
     else
         fileContent = response.readAll()
     end
@@ -61,23 +87,22 @@ function saveJSONFile(fileName, content, serialize)
     file.close()
 end
 
-function loadBankState()
+function loadTradingPostState()
     local state = nil;
-    term.setTextColour(colours.orange)
 
     if fs.exists("state.json") then
         state = readJSONFile("state.json")
 
         -- State file exists but no settings URL is defined
         if (state.settingsURL == "") then
-            print("The state.json file has no valid settings URL. Deleting file and requesting manual input...")
+            printWarning("The state.json file has no valid settings URL. Deleting file and requesting manual input...")
             fs.delete("state.json")
-            loadBankState()
+            loadTradingPostState()
         end
     else
         -- Settings file exists but a state file doesn't
         if fs.exists("settings.json") then
-            print("A settings.json file exists but a state.json file doesn't. Deleting file and requesting manual input...")
+            printWarning("A settings.json file exists but a state.json file doesn't. Deleting file and requesting manual input...")
             fs.delete("settings.json")
         end
 
@@ -87,7 +112,6 @@ function loadBankState()
         }
         saveJSONFile("state.json", state, true)
     end
-    term.setTextColour(colours.white)
     return state
 end
 
@@ -139,6 +163,36 @@ function loadSettings(state)
     return settings
 end
 
+function loadBankSettings(settings)
+    -- Early return if no bank is linked
+    if settings.bank == nil then
+        return nil
+    end
+
+    local banksFileRemote = readFileFromURL(BANKS_FILE)
+    if banksFileRemote then
+        local banksFileJson = textutils.unserializeJSON(banksFileRemote)
+        local bankSettings = banksFileJson[settings.bank]
+
+        if bankSettings ~= nil then
+            if not bankSettings.enabled then
+                error("This trading post is linked to a Nation Bank that is currently disabled.")
+            else
+                local blazeBankerPos = bankSettings.blazeBanker
+                if blazeBankerPos ~= nil and #blazeBankerPos == 3 then
+                    return bankSettings
+                else
+                    error("A Blaze Banker position is required since this Trading Post is linked to a Nation Bank.")
+                end
+            end
+        else
+            error("This Trading Post is linked to a Nation Bank that doesn't exist.")
+        end
+    else
+        error("The global bank list is missing or cannot be loaded. Please report this to a member of staff.")
+    end
+end
+
 function logToFile(message)
     local logFile = fs.open("transactions.log", "a")
 
@@ -175,29 +229,50 @@ function findClosestPlayer()
     return nil
 end
 
-function printHeading(text, backgroundColour)
+function printHeading(bgColourString, bankName)
+    local textColour = colours.black
+
+    -- Get the headers text colour
+    local complimentaryColour = COMPLIMENTARY_TEXT_COLOURS[bgColourString]
+    textColour = colours[complimentaryColour] or colours.black
+
     _monitor.clear()
-    _monitor.setBackgroundColour(backgroundColour)
+    _monitor.setTextColour(textColour)
+    _monitor.setBackgroundColour(colours[bgColourString])
     _monitor.setCursorPos(1,1)
     _monitor.setTextScale(0.5)
-    _monitor.write(text .. "                    ")
+    if bankName then
+        _monitor.write(bankName .. " - Trading Post" .. "                         ")
+    else
+        _monitor.write("Trading Post                         ")
+    end
     _monitor.setCursorPos(1,2)
     _monitor.write("____________________________________")
     _monitor.setBackgroundColour(colours.black)
     _monitor.setTextColour(colours.white)
 end
 
-function printTrades(trades)
-    printHeading("Current Trade Offers", colours.purple)
+function printTrades(trades, bankSettings)
+    local bgColourString = FALLBACK_BG_COLOUR
+    local bankName = nil
+
+    if bankSettings then
+        bankName = bankSettings.name
+        bgColourString = bankSettings.colour or bgColourString
+    end
+    printHeading(bgColourString, bankName)
 
     for idx, trade in ipairs(trades) do
         _monitor.setCursorPos(1, idx + 3)
-        _monitor.write(("%s - %d sprockets"):format(trade.name, trade.value))
+        _monitor.write(("x%d %s - %d¤"):format(trade.amount, trade.name, trade.value))
 
         if idx == #trades then
             _monitor.setCursorPos(1, #trades + 5)
             _monitor.setTextColour(colours.yellow)
             _monitor.write("Place items in the chest to trade")
+            _monitor.setCursorPos(1, #trades + 6)
+            _monitor.setTextColour(colours.lightGrey)
+            _monitor.write("(¤ = 1 spur)")
         end
     end
 end
@@ -212,7 +287,7 @@ function printBlacklistWarning(name)
     _monitor.write("for details.")
 end
 
-function cycleTrades(settings)
+function cycleTrades(settings, bankSettings)
     local trades = deepCopy(settings.trades)
     local randomTrades = {}
     local exploredTradesIdxSet = {} -- In index format
@@ -224,8 +299,11 @@ function cycleTrades(settings)
 
         if not exploredTradesIdxSet[randomIdx] then
             local randomTrade = trades[randomIdx]
-            if math.random() <= randomTrade.chance then
-                local randomCost = randomTrade.value + math.floor(math.random(0, randomTrade.variation * 2) - randomTrade.variation)
+            local randomChance = randomTrade.chance or FALLBACK_CHANCE
+
+            if math.random() <= randomChance then
+                local variation = randomTrade.variation or 0
+                local randomCost = randomTrade.value + math.floor(math.random(0, variation * 2) - variation)
 
                 -- Set the cost and sanitize keys that aren't needed
                 randomTrade.value = randomCost
@@ -248,12 +326,12 @@ function cycleTrades(settings)
     end
 
     -- Save trades
-    local state = loadBankState()
+    local state = loadTradingPostState()
     state.trades = randomTrades
     saveJSONFile("state.json", state, true)
 
     -- Print trades
-    printTrades(randomTrades)
+    printTrades(randomTrades, bankSettings)
     return randomTrades
 end
 
@@ -269,9 +347,10 @@ end
 _monitor.setPaletteColour(colours.purple, 0x724085)
 _monitor.setPaletteColour(colours.red, 0xa40b15)
 
-local state = loadBankState()
+local state = loadTradingPostState()
 local settings = loadSettings(state)
-local trades = cycleTrades(settings)
+local bankSettings = loadBankSettings(settings) -- Could be Nil
+local trades = cycleTrades(settings, bankSettings)
 
 term.setTextColour(colours.lime)
 print("Computer is setup for trading!")
@@ -296,7 +375,7 @@ while true do
         if (nowMins > state.nextTrade) then
             state.limits = nil
             state.nextTrade = nowMins + settings.tradeCycle
-            trades = cycleTrades(settings)
+            trades = cycleTrades(settings, bankSettings)
         end
         counter = 0
     end
