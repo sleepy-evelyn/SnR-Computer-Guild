@@ -1,7 +1,7 @@
 {
     "centralia": {
         "blazeBanker": [2582, 74, 2310],
-        "enabled": true,
+        "enabled": false,
         "name": "Centralia Bank",
         "colour": "purple"
     }
