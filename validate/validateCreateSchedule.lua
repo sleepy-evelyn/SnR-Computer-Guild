@@ -165,6 +165,12 @@ local function changeErrorListMessage(list, from, to)
     return list
 end
 
+---@class List List class from schema.lua
+---@class Error Error class from schema.lua
+
+---Checks if the given schema is valid. Will return nil if no issues are found, or a List of Errors if any errors are found.
+---@param schedule table The Create Schedule to check
+---@return nil|List<Error> errors Is nil if the schema is valid, else returns a List of Errors you can format with tostring(errors)
 function this.validateCreateSchedule(schedule)
     local err = schema.CheckSchema(schedule, scheduleSchema)
     if err then return err end
